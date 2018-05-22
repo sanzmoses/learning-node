@@ -5,6 +5,7 @@ var expressValidator = require('express-validator');
 const { check, validationResult } = require('express-validator/check');
 var mongojs = require('mongojs')
 var db = mongojs('learn', ['users'])
+var ObjectId = mongojs.ObjectId;
 var app = express();
 
 /*
@@ -53,14 +54,35 @@ app.use(function(req, res, next){
 // 		email: 'jj@email.com'
 // 	}
 // ]
+var users = [];
 
 app.get('/', function(req, res){
 	db.users.find(function (err, docs) {
+		users = docs;
+		// console.log(users);
 		res.render('index', {
 			title: "Customers",
 			users: docs
 		});
 	});
+
+});
+
+app.post('/userz/update', [
+
+	check('fname').isLength({ min: 5}),
+	check('email', 'Invalid Email').isEmail(),
+	check('lname').isLength({ min: 3})
+
+], function(req, res){
+	console.log("updating...");
+	var data = req.body;
+	db.users.update({_id: ObjectId(data.id)}, {fname:data.fname, lname:data.lname, email:data.email}, function(err, result){
+		if(err){
+			console.log(err);
+		}
+		res.redirect('/');
+	})
 
 });
 
@@ -71,7 +93,7 @@ app.post('/users/add', [
 	check('lname').isLength({ min: 3})
 
 ], (req, res) => {
-	console.log(req.body);
+
 	const errors = validationResult(req);
 	if(!errors.isEmpty()) {
 		res.render('index', {
@@ -83,18 +105,40 @@ app.post('/users/add', [
 		// return res.status(422).json({errors: errors.array() });
 	}
 	else{
-		console.log('New user...');
+
 		var newUser = {
 			fname: req.body.fname,
 			lname: req.body.lname,
 			email: req.body.email
 		}
 
-		users.push(newUser);
+		db.users.insert(newUser, (err, result) => {
+			if(err){
+				console.log(err);
+			}
+			res.redirect('/');
+		})
+
 	}
+});
 
-	
+app.get('/user/:id', function(req, res){
+	var id = req.params.id;
+	db.users.findOne({_id: ObjectId(id)}, function (err, docs) {
+		res.send(docs);
+	})
+});
 
+app.delete('/users/delete/:id', (req, res) => {
+	console.log(req.params.id);	
+	db.users.remove({_id: ObjectId(req.params.id)}, function(err){
+		if(err){
+			console.log(err);
+		}
+		else{
+			console.log('success');
+		}
+	});
 });
 
 app.listen(3000, function(){
